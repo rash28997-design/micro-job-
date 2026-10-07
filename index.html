@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MicroJob Bangladesh Platform</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: #f0f2f5; color: #333; padding-bottom: 50px; }
+    header { background: #1b2a47; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+    header h1 { font-size: 20px; }
+    nav button { background: #28a745; color: white; border: none; padding: 8px 15px; margin: 3px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+    nav button.admin-btn { background: #dc3545; }
+    nav button:hover { opacity: 0.9; }
+    
+    .container { max-width: 900px; margin: 20px auto; padding: 0 15px; }
+    .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .hidden { display: none !important; }
+    
+    input, textarea, select { width: 100%; padding: 10px; margin: 8px 0 15px; border: 1px solid #ccc; border-radius: 4px; }
+    button.submit-btn { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 16px; width: 100%; }
+    
+    .job-item { border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
+    .badge { background: #e7f3ff; color: #1877f2; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+    
+    /* Modal / Popup */
+    .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: white; padding: 25px; border-radius: 8px; max-width: 450px; width: 90%; }
+    .payment-methods { background: #f8f9fa; border: 1px dashed #28a745; padding: 15px; border-radius: 6px; margin: 15px 0; }
+    .payment-methods p { margin-bottom: 8px; font-size: 14px; }
+    .close-btn { background: #6c757d; color: white; border: none; padding: 5px 10px; border-radius: 4px; float: right; cursor: pointer; }
+    
+    .status-pending { color: #ffc107; font-weight: bold; }
+    .status-approved { color: #28a745; font-weight: bold; }
+    .status-rejected { color: #dc3545; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>MicroJob BD</h1>
+    <nav>
+      <button onclick="showPage('user-dashboard')">ড্যাশবোর্ড</button>
+      <button onclick="showPage('jobs-list')">কাজসমূহ</button>
+      <button onclick="showPage('post-job-page')">টাস্ক পোস্ট করুন</button>
+      <button onclick="showPage('my-posted-jobs')">আমার পোস্ট করা কাজ</button>
+      <button onclick="showPage('withdraw-page')">উইথড্র</button>
+      <button class="admin-btn" onclick="showPage('admin-login')">এডমিন প্যানেল</button>
+    </nav>
+  </header>
+
+  <div class="container">
+
+    <!-- User Dashboard -->
+    <section id="user-dashboard" class="page">
+      <div class="card">
+        <h2>ইউজার প্রোফাইল</h2>
+        <hr><br>
+        <p>মূল ব্যালেন্স: <strong id="user-balance" style="color: #28a745; font-size: 20px;">৳ 0.00</strong></p>
+        <p>সম্পন্ন কাজ: <span id="user-completed-count">0</span> টি</p>
+      </div>
+    </section>
+
+    <!-- Available Jobs -->
+    <section id="jobs-list" class="page hidden">
+      <div class="card">
+        <h2>উপলব্ধ কাজসমূহ</h2>
+        <div id="all-jobs-container"></div>
+      </div>
+    </section>
+
+    <!-- Job Details & Proof Submission -->
+    <section id="job-details-page" class="page hidden">
+      <div class="card">
+        <button onclick="showPage('jobs-list')" style="margin-bottom: 15px; padding: 5px 10px;">← পেছনে যান</button>
+        <h2 id="view-job-title"></h2>
+        <p style="margin: 10px 0;" id="view-job-desc"></p>
+        <p>পুরস্কার: <strong id="view-job-reward" style="color: #28a745;"></strong></p>
+        <hr style="margin: 15px 0;">
+        <h3>কাজের প্রুফ জমা দিন</h3>
+        <form id="proof-form">
+          <input type="hidden" id="proof-job-id">
+          <textarea id="proof-text" placeholder="আপনার কাজের বিবরণ ও প্রমাণ (যেমন: স্ক্রিনশট লিঙ্ক বা ইউজারনেম)" required rows="4"></textarea>
+          <button type="submit" class="submit-btn">প্রুফ জমা দিন</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Post A Job -->
+    <section id="post-job-page" class="page hidden">
+      <div class="card">
+        <h2>নতুন টাস্ক পোস্ট করুন</h2>
+        <p style="color: #666; font-size: 13px;">* লক্ষ্য করুন: জব পোস্ট করার সময় মূল বাজেটের সাথে <strong>৮% এডমিন ফি</strong> যুক্ত হবে।</p>
+        <br>
+        <form id="create-job-form">
+          <label>কাজের শিরোনাম:</label>
+          <input type="text" id="job-title" placeholder="যেমন: YouTube Video Like & Subscribe" required>
+          
+          <label>কাজের বিবরণ ও নির্দেশনা:</label>
+          <textarea id="job-desc" placeholder="বিস্তারিত লিখুন..." required rows="4"></textarea>
+          
+          <label>কাজের বাজেট/পুরস্কার (টাকা):</label>
+          <input type="number" id="job-budget" placeholder="যেমন: 50" min="10" required oninput="calculateJobFee()">
+          
+          <p id="fee-calc-text" style="margin-bottom: 15px; font-size: 14px; color: #17a2b8;"></p>
+          
+          <button type="submit" class="submit-btn">পেমেন্ট ও পোস্ট করুন</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- My Posted Jobs & Proof Approval -->
+    <section id="my-posted-jobs" class="page hidden">
+      <div class="card">
+        <h2>আমার পোস্ট করা কাজ ও অ্যাপ্রুভাল</h2>
+        <div id="my-jobs-container"></div>
+      </div>
+    </section>
+
+    <!-- Withdraw Page -->
+    <section id="withdraw-page" class="page hidden">
+      <div class="card">
+        <h2>টাকা উত্তোলন (Withdraw)</h2>
+        <p style="color: #dc3545; font-size: 13px;">* উইথড্র করার সময় মোট টাকার উপর <strong>১০% এডমিন ফি</strong> প্রযোজ্য।</p>
+        <br>
+        <form id="withdraw-form">
+          <label>পেমেন্ট মেথড:</label>
+          <select id="withdraw-method">
+            <option value="bkash">bKash (বিকাশ)</option>
+            <option value="nagad">Nagad (নগদ)</option>
+          </select>
+
+          <label>একাউন্ট নম্বর:</label>
+          <input type="text" id="withdraw-number" placeholder="017xxxxxxxx" required>
+
+          <label>উত্তোলনের পরিমাণ (টাকা):</label>
+          <input type="number" id="withdraw-amount" placeholder="সর্বনিম্ন ৫০ টাকা" min="50" required oninput="calculateWithdrawFee()">
+
+          <p id="withdraw-fee-text" style="margin-bottom: 15px; font-size: 14px; color: #17a2b8;"></p>
+
+          <button type="submit" class="submit-btn">উইথড্র রিকোয়েস্ট পাঠান</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Admin Login -->
+    <section id="admin-login" class="page hidden">
+      <div class="card" style="max-width: 400px; margin: 0 auto;">
+        <h2>এডমিন লগইন</h2>
+        <br>
+        <form id="admin-login-form">
+          <input type="email" id="admin-email" placeholder="ইমেইল" required>
+          <input type="password" id="admin-password" placeholder="পাসওয়ার্ড" required>
+          <button type="submit" class="submit-btn">লগইন</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Admin Panel -->
+    <section id="admin-panel" class="page hidden">
+      <div class="card">
+        <h2>এডমিন ড্যাশবোর্ড (A-Z Control)</h2>
+        <p style="color: #28a745;">এডমিন মোট আয় (ফি থেকে): <strong id="admin-revenue">৳ 0.00</strong></p>
+        <button onclick="logoutAdmin()" style="margin-top: 10px; background: #6c757d; color: white; border: none; padding: 5px 10px; cursor: pointer;">লগআউট</button>
+      </div>
+
+      <div class="card">
+        <h3>পেন্ডিং জব পোস্ট (পেমেন্ট ভেরিফিকেশন)</h3>
+        <div id="admin-pending-jobs"></div>
+      </div>
+
+      <div class="card">
+        <h3>পেন্ডিং উইথড্র রিকোয়েস্ট</h3>
+        <div id="admin-pending-withdraws"></div>
+      </div>
+
+      <div class="card">
+        <h3>এডমিন পাসওয়ার্ড পরিবর্তন</h3>
+        <form id="change-pass-form">
+          <input type="password" id="new-admin-pass" placeholder="নতুন পাসওয়ার্ড দিন" required>
+          <button type="submit" class="submit-btn" style="background: #28a745;">পাসওয়ার্ড আপডেট করুন</button>
+        </form>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Modal for Payment Gateway Popup -->
+  <div id="payment-modal" class="modal hidden">
+    <div class="modal-content">
+      <button class="close-btn" onclick="closeModal()">✕</button>
+      <h3>এডমিন পেমেন্ট গেটওয়ে</h3>
+      <p style="font-size: 13px; color: #555; margin-top: 5px;">টাস্ক পোস্ট কনফার্ম করতে নিচের নম্বরে টাকা সেন্ড মানি করুন:</p>
+
+      <div class="payment-methods">
+        <p><strong>bKash (বিকাশ Personal):</strong> <span style="color: #e2136e; font-weight: bold;">01744946744</span></p>
+        <p><strong>Nagad (নগদ Personal):</strong> <span style="color: #f7931e; font-weight: bold;">01577783621</span></p>
+        <p style="margin-top: 8px;">মোট প্রদেয় টাকা (৮% ফি সহ): <strong id="pop-total-amount" style="color: #28a745;">৳ 0</strong></p>
+      </div>
+
+      <form id="payment-submit-form">
+        <label>যে নম্বর থেকে টাকা পাঠিয়েছেন:</label>
+        <input type="text" id="pay-sender-number" placeholder="017xxxxxxxx" required>
+
+        <label>TrxID (ট্রানজেকশন আইডি):</label>
+        <input type="text" id="pay-trxid" placeholder="8N7A6D5X" required>
+
+        <button type="submit" class="submit-btn" style="background: #28a745;">পেমেন্ট ভেরিফিকেশনে পাঠান</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // System LocalStorage Databases
+    let db = {
+      jobs: JSON.parse(localStorage.getItem('mb_jobs')) || [],
+      proofs: JSON.parse(localStorage.getItem('mb_proofs')) || [],
+      withdraws: JSON.parse(localStorage.getItem('mb_withdraws')) || [],
+      userBalance: parseFloat(localStorage.getItem('mb_balance')) || 0,
+      userCompleted: parseInt(localStorage.getItem('mb_completed')) || 0,
+      adminRevenue: parseFloat(localStorage.getItem('mb_admin_revenue')) || 0,
+      adminAuth: JSON.parse(localStorage.getItem('mb_admin_auth')) || {
+        email: "admin22@gmail.com",
+        password: "admin123@microjob12@.com"
+      }
+    };
+
+    let tempPendingJob = null;
+
+    function saveData() {
+      localStorage.setItem('mb_jobs', JSON.stringify(db.jobs));
+      localStorage.setItem('mb_proofs', JSON.stringify(db.proofs));
+      localStorage.setItem('mb_withdraws', JSON.stringify(db.withdraws));
+      localStorage.setItem('mb_balance', db.userBalance);
+      localStorage.setItem('mb_completed', db.userCompleted);
+      localStorage.setItem('mb_admin_revenue', db.adminRevenue);
+      localStorage.setItem('mb_admin_auth', JSON.stringify(db.adminAuth));
+    }
+
+    // Navigation Logic
+    function showPage(pageId) {
+      document.querySelectorAll('.page').forEach(page => page.classList.add('hidden'));
+      document.getElementById(pageId).classList.remove('hidden');
+      
+      if(pageId === 'user-dashboard') renderDashboard();
+      if(pageId === 'jobs-list') renderJobsList();
+      if(pageId === 'my-posted-jobs') renderMyPostedJobs();
+      if(pageId === 'admin-panel') renderAdminPanel();
+    }
+
+    // Fee Calculation
+    function calculateJobFee() {
+      let budget = parseFloat(document.getElementById('job-budget').value) || 0;
+      let fee = budget * 0.08;
+      let total = budget + fee;
+      document.getElementById('fee-calc-text').innerText = `মূল বাজেট: ৳${budget} + ৮% এডমিন ফি: ৳${fee.toFixed(2)} = মোট পেমেন্ট: ৳${total.toFixed(2)}`;
+    }
+
+    function calculateWithdrawFee() {
+      let amount = parseFloat(document.getElementById('withdraw-amount').value) || 0;
+      let fee = amount * 0.10;
+      let net = amount - fee;
+      document.getElementById('withdraw-fee-text').innerText = `মোট উইথড্র: ৳${amount} - ১০% এডমিন ফি: ৳${fee.toFixed(2)} = আপনি পাবেন: ৳${net.toFixed(2)}`;
+    }
+
+    // Job Posting & Payment Modal
+    document.getElementById('create-job-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      let title = document.getElementById('job-title').value;
+      let desc = document.getElementById('job-desc').value;
+      let budget = parseFloat(document.getElementById('job-budget').value);
+      let fee = budget * 0.08;
+      let totalPay = budget + fee;
+
+      tempPendingJob = {
+        id: Date.now(),
+        title: title,
+        desc: desc,
+        budget: budget,
+        fee: fee,
+        totalPay: totalPay,
+        status: 'pending_payment'
+      };
+
+      document.getElementById('pop-total-amount').innerText = `৳ ${totalPay.toFixed(2)}`;
+      document.getElementById('payment-modal').classList.remove('hidden');
+    });
+
+    function closeModal() {
+      document.getElementById('payment-modal').classList.add('hidden');
+    }
+
+    document.getElementById('payment-submit-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      tempPendingJob.senderNumber = document.getElementById('pay-sender-number').value;
+      tempPendingJob.trxId = document.getElementById('pay-trxid').value;
+
+      db.jobs.push(tempPendingJob);
+      saveData();
+
+      alert('পেমেন্ট রিকোয়েস্ট সফলভাবে জমা হয়েছে! এডমিন ভেরিফাই করলে আপনার কাজ পাবলিশ হবে।');
+      closeModal();
+      this.reset();
+      document.getElementById('create-job-form').reset();
+      showPage('jobs-list');
+    });
+
+    // Render Public Approved Jobs
+    function renderJobsList() {
+      let container = document.getElementById('all-jobs-container');
+      container.innerHTML = '';
+      let approvedJobs = db.jobs.filter(j => j.status === 'approved');
+
+      if(approvedJobs.length === 0) {
+        container.innerHTML = '<p style="color: #777;">বর্তমানে কোনো সক্রিয় কাজ নেই।</p>';
+        return;
+      }
+
+      approvedJobs.forEach(job => {
+        let div = document.createElement('div');
+        div.className = 'job-item';
+        div.innerHTML = `
+          <div>
+            <h3>${job.title}</h3>
+            <p><small>${job.desc.substring(0, 60)}...</small></p>
+            <span class="badge">পুরস্কার: ৳${job.budget}</span>
+          </div>
+          <button onclick="openJobDetails(${job.id})" style="background:#007bff; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer;">কাজ করুন</button>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function openJobDetails(jobId) {
+      let job = db.jobs.find(j => j.id === jobId);
+      document.getElementById('proof-job-id').value = job.id;
+      document.getElementById('view-job-title').innerText = job.title;
+      document.getElementById('view-job-desc').innerText = job.desc;
+      document.getElementById('view-job-reward').innerText = `৳ ${job.budget}`;
+      showPage('job-details-page');
+    }
+
+    // Submit Proof
+    document.getElementById('proof-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      let jobId = parseInt(document.getElementById('proof-job-id').value);
+      let proofText = document.getElementById('proof-text').value;
+
+      db.proofs.push({
+        id: Date.now(),
+        jobId: jobId,
+        proofText: proofText,
+        status: 'pending'
+      });
+      saveData();
+
+      alert('কাজের প্রুফ সফলভাবে পোস্টারের কাছে জমা দেওয়া হয়েছে!');
+      this.reset();
+      showPage('jobs-list');
+    });
+
+    // Poster Review & Approve/Reject Proofs
+    function renderMyPostedJobs() {
+      let container = document.getElementById('my-jobs-container');
+      container.innerHTML = '';
+
+      if(db.jobs.length === 0) {
+        container.innerHTML = '<p style="color: #777;">আপনি এখনো কোনো কাজ পোস্ট করেননি।</p>';
+        return;
+      }
+
+      db.jobs.forEach(job => {
+        let jobProofs = db.proofs.filter(p => p.jobId === job.id);
+        let div = document.createElement('div');
+        div.style.border = '1px solid #ddd';
+        div.style.padding = '15px';
+        div.style.marginBottom = '15px';
+        div.style.borderRadius = '6px';
+
+        let proofHtml = '';
+        if(jobProofs.length === 0) {
+          proofHtml = '<p style="font-size:12px; color:#888; margin-top:5px;">কোনো প্রুফ জমা পড়েনি।</p>';
+        } else {
+          jobProofs.forEach(p => {
+            proofHtml += `
+              <div style="background:#f9f9f9; padding:8px; margin-top:8px; border-radius:4px; font-size:13px;">
+                <p><strong>প্রুফ:</strong> ${p.proofText}</p>
+                <p>স্ট্যাটাস: <span class="status-${p.status}">${p.status.toUpperCase()}</span></p>
+                ${p.status === 'pending' ? `
+                  <button onclick="reviewProof(${p.id}, 'approved',${job.budget})" style="background:#28a745; color:white; border:none; padding:3px 8px; border-radius:3px; cursor:pointer;">Approve</button>
+                  <button onclick="reviewProof(${p.id}, 'rejected', 0)" style="background:#dc3545; color:white; border:none; padding:3px 8px; border-radius:3px; cursor:pointer;">Reject</button>
+                ` : ''}
+              </div>
+            `;
+          });
+        }
+
+        div.innerHTML = `
+          <h4>${job.title} (বাজেট: ৳${job.budget})</h4>
+          <p><small>স্ট্যাটাস: <strong class="status-${job.status}">${job.status.toUpperCase()}</strong></small></p>
+          <hr style="margin: 8px 0;">
+          <h5>জমা পড়া কাজসমূহ:</h5>
+          ${proofHtml}
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function reviewProof(proofId, status, reward) {
+      let proof = db.proofs.find(p => p.id === proofId);
+      proof.status = status;
+
+      if(status === 'approved') {
+        db.userBalance += reward;
+        db.userCompleted += 1;
+        alert(`প্রুফটি Approve করা হয়েছে! কর্মী ৳${reward} পেয়েছে।`);
+      } else {
+        alert('প্রুফটি Reject করা হয়েছে।');
+      }
+
+      saveData();
+      renderMyPostedJobs();
+    }
+
+    // Withdraw Logic
+    document.getElementById('withdraw-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      let amount = parseFloat(document.getElementById('withdraw-amount').value);
+      let method = document.getElementById('withdraw-method').value;
+      let number = document.getElementById('withdraw-number').value;
+
+      if(amount > db.userBalance) {
+        alert('আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই!');
+        return;
+      }
+
+      let fee = amount * 0.10;
+      let netPay = amount - fee;
+
+      db.userBalance -= amount; // Deduct total amount
+      db.withdraws.push({
+        id: Date.now(),
+        amount: amount,
+        fee: fee,
+        netPay: netPay,
+        method: method,
+        number: number,
+        status: 'pending'
+      });
+
+      saveData();
+      alert('উইথড্র রিকোয়েস্ট জমা হয়েছে! এডমিন প্রসেস করবে।');
+      this.reset();
+      showPage('user-dashboard');
+    });
+
+    // Admin Panel Actions & Render
+    document.getElementById('admin-login-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      let email = document.getElementById('admin-email').value;
+      let pass = document.getElementById('admin-password').value;
+
+      if(email === db.adminAuth.email && pass === db.adminAuth.password) {
+        showPage('admin-panel');
+        this.reset();
+      } else {
+        alert('ভুল ইমেইল অথবা পাসওয়ার্ড!');
+      }
+    });
+
+    function renderAdminPanel() {
+      document.getElementById('admin-revenue').innerText = `৳ ${db.adminRevenue.toFixed(2)}`;
+
+      // Admin Pending Job Payments
+      let jobContainer = document.getElementById('admin-pending-jobs');
+      jobContainer.innerHTML = '';
+      let pendingJobs = db.jobs.filter(j => j.status === 'pending_payment');
+
+      if(pendingJobs.length === 0) jobContainer.innerHTML = '<p style="color:#777; font-size:13px;">কোনো পেমেন্ট পেন্ডিং নেই।</p>';
+
+      pendingJobs.forEach(job => {
+        let div = document.createElement('div');
+        div.style.border = '1px dashed #007bff';
+        div.style.padding = '10px';
+        div.style.marginTop = '10px';
+        div.innerHTML = `
+          <p><strong>জব:</strong> ${job.title}</p>
+          <p><strong>মোট প্রদেয়:</strong> ৳${job.totalPay} (ফি: ৳${job.fee.toFixed(2)})</p>
+          <p><strong>নম্বর:</strong> ${job.senderNumber} | <strong>TrxID:</strong> ${job.trxId}</p>
+          <button onclick="approveJobPayment(${job.id})" style="background:#28a745; color:white; border:none; padding:4px 8px; margin-top:5px; cursor:pointer;">Approve Job</button>
+        `;
+        jobContainer.appendChild(div);
+      });
+
+      // Admin Pending Withdraws
+      let withContainer = document.getElementById('admin-pending-withdraws');
+      withContainer.innerHTML = '';
+      let pendingWiths = db.withdraws.filter(w => w.status === 'pending');
+
+      if(pendingWiths.length === 0) withContainer.innerHTML = '<p style="color:#777; font-size:13px;">কোনো উইথড্র পেন্ডিং নেই।</p>';
+
+      pendingWiths.forEach(w => {
+        let div = document.createElement('div');
+        div.style.border = '1px dashed #dc3545';
+        div.style.padding = '10px';
+        div.style.marginTop = '10px';
+        div.innerHTML = `
+          <p><strong>পেমেন্ট মেথড:</strong> ${w.method.toUpperCase()} (${w.number})</p>
+          <p><strong>উইথড্র:</strong> ৳${w.amount} | <strong>১০% ফি:</strong> ৳${w.fee.toFixed(2)} | <strong>প্রদেয়:</strong> ৳${w.netPay.toFixed(2)}</p>
+          <button onclick="approveWithdraw(${w.id})" style="background:#28a745; color:white; border:none; padding:4px 8px; margin-top:5px; cursor:pointer;">Complete Payment</button>
+        `;
+        withContainer.appendChild(div);
+      });
+    }
+
+    function approveJobPayment(jobId) {
+      let job = db.jobs.find(j => j.id === jobId);
+      job.status = 'approved';
+      db.adminRevenue += job.fee; // 8% fee goes to admin
+      saveData();
+      alert('পেমেন্ট ভেরিফাই হয়েছে এবং কাজ পাবলিকলি লাইভ করা হয়েছে!');
+      renderAdminPanel();
+    }
+
+    function approveWithdraw(withdrawId) {
+      let w = db.withdraws.find(x => x.id === withdrawId);
+      w.status = 'completed';
+      db.adminRevenue += w.fee; // 10% withdraw fee goes to admin
+      saveData();
+      alert('উইথড্র সফলভাবে সম্পন্ন হিসেবে চিহ্নিত করা হয়েছে!');
+      renderAdminPanel();
+    }
+
+    document.getElementById('change-pass-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      let newPass = document.getElementById('new-admin-pass').value;
+      db.adminAuth.password = newPass;
+      saveData();
+      alert('এডমিন পাসওয়ার্ড সফলভাবে আপডেট করা হয়েছে!');
+      this.reset();
+    });
+
+    function logoutAdmin() {
+      showPage('user-dashboard');
+    }
+
+    function renderDashboard() {
+      document.getElementById('user-balance').innerText = `৳ ${db.userBalance.toFixed(2)}`;
+      document.getElementById('user-completed-count').innerText = db.userCompleted;
+    }
+
+    // Initialize
+    renderDashboard();
+  </script>
+</body>
+</html>
